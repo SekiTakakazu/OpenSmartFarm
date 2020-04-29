@@ -16,50 +16,50 @@
  
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include "DHT.h"          // Librairie des capteurs DHT
+#include "DHT.h"          // DHT library
 
-#define wifi_ssid "Orbit"
-#define wifi_password "crypto4uh"
+#define wifi_ssid "xxx"       //wifi network
+#define wifi_password "xxx"   // passphrase
 
-#define mqtt_server "192.168.178.61"
-#define mqtt_user "pi"  //s'il a été configuré sur Mosquitto
-#define mqtt_password "crypto4uh" //idem
+#define mqtt_server "192.168.178.61"  //ip MQTT broker
+#define mqtt_user "pi"  //mosquitto user
+#define mqtt_password "xxx" //passphrase
 
-#define temperature_topic "sensor/temperature"  //Topic température
-#define humidity_topic "sensor/humidity"        //Topic humidité
+#define temperature_topic "sensor/temperature"  //Topic temperature
+#define humidity_topic "sensor/humidity"        //Topic humidity
 
-//Buffer qui permet de décoder les messages MQTT reçus
+//Buffer mqtt message size
 char message_buff[100];
 
-long lastMsg = 0;   //Horodatage du dernier message publié sur MQTT
+long lastMsg = 0;   //counter MQTT message
 long lastRecu = 0;
-bool debug = true;  //Affiche sur la console si True
+bool debug = true;  //if TRUE debug messages in console
 
-#define DHTPIN D4    // Pin sur lequel est branché le DHT
+#define DHTPIN D4    // DHT pin
 
-// Dé-commentez la ligne qui correspond à votre capteur 
+// uncomment used DHT type
 //#define DHTTYPE DHT11       // DHT 11 
 #define DHTTYPE DHT22         // DHT 22  (AM2302)
 
-//Création des objets
+//create objects
 DHT dht(DHTPIN, DHTTYPE);     
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 void setup() {
-  Serial.begin(9600);     //Facultatif pour le debug
-  pinMode(D2,OUTPUT);     //Pin 2 
-  setup_wifi();           //On se connecte au réseau wifi
-  client.setServer(mqtt_server, 1883);    //Configuration de la connexion au serveur MQTT
-  client.setCallback(callback);  //La fonction de callback qui est executée à chaque réception de message   
-  dht.begin();
+  Serial.begin(9600);     //if debug is true
+  pinMode(D2,OUTPUT);     //Pin 2 in output mode for LED
+  setup_wifi();           //start wifi
+  client.setServer(mqtt_server, 1883);    //initialize MQTT server
+  client.setCallback(callback);  //???   
+  dht.begin();  //start DHT
 }
 
-//Connexion au réseau WiFi
+//Start wifi
 void setup_wifi() {
   delay(10);
   Serial.println();
-  Serial.print("Connexion a ");
+  Serial.print("Connecting to ");
   Serial.println(wifi_ssid);
 
   WiFi.begin(wifi_ssid, wifi_password);
@@ -70,22 +70,22 @@ void setup_wifi() {
   }
 
   Serial.println("");
-  Serial.println("Connexion WiFi etablie ");
-  Serial.print("=> Addresse IP : ");
+  Serial.println("WIFI Connection estabished ");
+  Serial.print(" => Addresse IP : ");
   Serial.print(WiFi.localIP());
 }
-
-//Reconnexion
+ 
+//reconnection
 void reconnect() {
-  //Boucle jusqu'à obtenur une reconnexion
+  //Loop until a reconnection is obtained
   while (!client.connected()) {
-    Serial.print("Connexion au serveur MQTT...");
+    Serial.print("Connecting to the MQTT server...");
     if (client.connect("ESP8266Client", mqtt_user, mqtt_password)) {
       Serial.println("OK");
     } else {
-      Serial.print("KO, erreur : ");
+      Serial.print("KO, error : ");
       Serial.print(client.state());
-      Serial.println(" On attend 5 secondes avant de recommencer");
+      Serial.println(" We wait five seconds before we do it again.");
       delay(5000);
     }
   }
@@ -98,18 +98,18 @@ void loop() {
   client.loop();
 
   long now = millis();
-  //Envoi d'un message par minute
+  //Sending one message per minute
   if (now - lastMsg > 1000 * 10) {
     lastMsg = now;
-    //Lecture de l'humidité ambiante
+    //Ambient humidity reading
     float h = dht.readHumidity();
-    // Lecture de la température en Celcius
+    // Temperature reading in Celcius
     float t = dht.readTemperature();
 
-    //Inutile d'aller plus loin si le capteur ne renvoi rien
+    //There's no point in going any further if the sensor doesn't return anything.
     /*
     if ( isnan(t) || isnan(h)) {
-      Serial.println("Echec de lecture ! Verifiez votre capteur DHT");
+      Serial.println("Failed to read! Check your DHT sensor");
       return;
     }
     */
@@ -120,8 +120,8 @@ void loop() {
       Serial.print(" | Humidite : ");
       Serial.println(h);
     }  
-    client.publish(temperature_topic, String(t).c_str(), true);   //Publie la température sur le topic temperature_topic
-    client.publish(humidity_topic, String(h).c_str(), true);      //Et l'humidité
+    client.publish(temperature_topic, String(t).c_str(), true);   //Publish the temperature on the topic temperature_topic
+    client.publish(humidity_topic, String(h).c_str(), true);      //And the humidity
   }
   if (now - lastRecu > 100 ) {
     lastRecu = now;
@@ -129,14 +129,14 @@ void loop() {
   }
 }
 
-// Déclenche les actions à la réception d'un message
-// D'après http://m2mio.tumblr.com/post/30048662088/a-simple-example-arduino-mqtt-m2mio
+// Triggers actions on receipt of a message
+// According to http://m2mio.tumblr.com/post/30048662088/a-simple-example-arduino-mqtt-m2mio
 void callback(char* topic, byte* payload, unsigned int length) {
 
   int i = 0;
   if ( debug ) {
-    Serial.println("Message recu =>  topic: " + String(topic));
-    Serial.print(" | longueur: " + String(length,DEC));
+    Serial.println("Message received =>  topic: " + String(topic));
+    Serial.print(" | length: " + String(length,DEC));
   }
   // create character buffer with ending null terminator (string)
   for(i=0; i<length; i++) {
